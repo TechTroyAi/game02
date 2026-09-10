@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # The verified APK is retained in artifacts/ on this same Arena work branch.
+  contents: write
 
 jobs:
   debug-apk:
@@ -17,18 +18,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
       - name: Assemble installable debug APK
         run: ./gradlew --no-daemon assembleDebug
       - name: Validate APK is present
         run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Retain verified APK on this work branch
+        # The bot's artifact commit starts one follow-up verification run, but cannot recurse.
+        if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          install -D -m 0644 app/build/outputs/apk/debug/app-debug.apk artifacts/Neon-Sector-Run-v1.0.0-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/Neon-Sector-Run-v1.0.0-debug.apk
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish Neon Sector Run v1.0.0 APK"
+            git push origin "HEAD:${BRANCH}"
+          fi
       - name: Upload Neon Sector Run APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Neon-Sector-Run-v1.0.0-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
