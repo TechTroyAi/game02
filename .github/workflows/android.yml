@@ -28,6 +28,11 @@ jobs:
         run: ./gradlew --no-daemon assembleDebug
       - name: Validate APK is present
         run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify Android install signature
+        run: |
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
       - name: Retain verified APK on this work branch
         # The bot's artifact commit starts one follow-up verification run, but cannot recurse.
         if: github.event_name == 'push' && github.actor != 'github-actions[bot]'
